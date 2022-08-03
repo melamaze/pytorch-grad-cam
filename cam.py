@@ -22,6 +22,8 @@ from pytorch_grad_cam.utils.image import show_cam_on_image, \
     preprocess_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
+from models import CNN_Model
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -79,7 +81,20 @@ if __name__ == '__main__':
          "fullgrad": FullGrad,
          "gradcamelementwise": GradCAMElementWise}
 
-    model = models.resnet50(pretrained=True)
+    # model = models.resnet50(pretrained=True)
+    
+    # train好的model
+    PATH = './save_modelglobal_model.pt1'
+
+    # 這個好像沒差，應該是不用先save = =
+    # torch.save(CNN_Model().state_dict(), PATH)
+
+    model = CNN_Model()
+    model.load_state_dict(torch.load(PATH))
+
+    model.eval()
+
+    print([model])
 
     # Choose the target layer you want to compute the visualization for.
     # Usually this will be the last convolutional layer in the model.
@@ -93,7 +108,8 @@ if __name__ == '__main__':
     # You can also try selecting all layers of a certain type, with e.g:
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
-    target_layers = [model.layer4]
+    target_layers = [model.cnn2]
+
 
     rgb_img = cv2.imread(args.image_path, 1)[:, :, ::-1]
     rgb_img = np.float32(rgb_img) / 255
