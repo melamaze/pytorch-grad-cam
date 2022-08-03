@@ -1,13 +1,16 @@
 
 ### 當前進度
 
-因為作者說如果要套自己的model的話，只要改cam.py裡載入的model和target layer(最後一層cnn layer要拿來做CAM的運算)就好了，所以...
+因為作者說如果要套自己的model，只要改cam.py裡loading的model和target layer(最後一層cnn layer，要拿來做CAM的運算)就好了，所以...
 
 - 我有把train好的model(save_modelglobal_model.pt1)和model的instance(models.py)放到目錄裏，然後在cam.py的line84~line111作修改，不過出了下面的bug :(
 
 ```RuntimeError: Given groups=1, weight of size [16, 1, 5, 5], expected input[1, 3, 28, 28] to have 1 channels, but got 3 channels instead```
 
+好像是dimension的問題
+
 ### 怎麼跑code
+
 ```
 usage: cam.py [-h] [--use-cuda] [--image-path IMAGE_PATH] [--aug_smooth] [--eigen_smooth]
               [--method {gradcam,hirescam,gradcam++,scorecam,xgradcam,ablationcam,eigencam,eigengradcam,layercam,fullgrad}]
