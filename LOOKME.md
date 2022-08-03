@@ -15,10 +15,9 @@
 usage: cam.py [-h] [--use-cuda] [--image-path IMAGE_PATH] [--aug_smooth] [--eigen_smooth]
               [--method {gradcam,hirescam,gradcam++,scorecam,xgradcam,ablationcam,eigencam,eigengradcam,layercam,fullgrad}]
 ```
-可以用從mnist抓下來的圖片4.jpg跑跑看 
+可以用從mnist抓下來的圖片```4.jpg```跑跑看 
 
 ```python3 cam.py --image-path 4.jpg```
 
 無聊的話也可以解註解或跑他範例model，然後自己隨便找圖改路徑換方法。
-
 真的可以生出熱力圖(不過我們的model目前不行 哈 :cry:)
