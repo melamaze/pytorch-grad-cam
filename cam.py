@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = './save_modelglobal_model.pt1'
+    PATH = './save_modelglobal_model.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
