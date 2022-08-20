@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = './save_modelglobal_model.pth'
+    PATH = './model.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
@@ -92,9 +92,9 @@ if __name__ == '__main__':
     model = CNN_Model()
     model.eval()
     model.load_state_dict(torch.load(PATH))
+    # print([model])
 
 
-    print([model])
 
     # Choose the target layer you want to compute the visualization for.
     # Usually this will be the last convolutional layer in the model.
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
     target_layers = [model.conv]
-
+    print(target_layers)
 
     rgb_img = cv2.imread(args.image_path, 1)[:, :, ::-1]
     rgb_img = np.float32(rgb_img) / 255
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                                     mean=[0.485, 0.456, 0.406],
                                     std=[0.229, 0.224, 0.225])
 
-
+    # print('QQ')
     # We have to specify the target we want to generate
     # the Class Activation Maps for.
     # If targets is None, the highest scoring category (for every member in the batch) will be used.
