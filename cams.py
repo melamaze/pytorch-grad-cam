@@ -24,7 +24,8 @@ from pytorch_grad_cam.utils.image import show_cam_on_image, \
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from torch.nn import functional as F
 from torch import topk
-from models import CNN_Model
+# from models import CNN_Model
+from models.DLA import SimpleDLA
 
 
 def get_args():
@@ -87,12 +88,12 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = './model.pth'
+    PATH = 'models/DLAcifar10.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
 
-    model = CNN_Model()
+    model = SimpleDLA()
     model.eval()
     model.load_state_dict(torch.load(PATH))
     # print([model])
@@ -111,7 +112,7 @@ if __name__ == '__main__':
     # You can also try selecting all layers of a certain type, with e.g:
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
-    target_layers = [model.conv]
+    target_layers = [model.layer6]
     # print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
@@ -128,8 +129,11 @@ if __name__ == '__main__':
         probs = F.softmax(outputs).data.squeeze()
         # get the class indices of top k probabilities
         class_idx = topk(probs, 1)[1].int()
-        res = str(int(class_idx[0]))
-        print('The result of classification is -->', res)
+        res = int(class_idx[0])
+
+        cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+
+        print('The result of classification is -->', cifar10_labels[res])
 
         # We have to specify the target we want to generate
         # the Class Activation Maps for.
@@ -171,6 +175,6 @@ if __name__ == '__main__':
         cv2.imshow('CAM', cam_image/255.)
         cv2.waitKey(0)
         save_name = f"{image_path.split('/')[-1].split('.')[0]}"
-        cv2.imwrite(f'outputs/{args.method}_cam_{save_name}.jpg', cam_image)
+        cv2.imwrite(f'cifar_outputs/{args.method}_cam_{save_name}.jpg', cam_image)
         # cv2.imwrite(f'{args.method}_gb.jpg', gb)
         # cv2.imwrite(f'{args.method}_cam_gb.jpg', cam_gb)
