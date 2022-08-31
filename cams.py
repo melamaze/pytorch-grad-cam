@@ -117,6 +117,12 @@ if __name__ == '__main__':
     print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
+
+    poisonCNT = 0
+    failCNT = 0
+    otherCNT = 0
+    totalCNT = 0
+
     for image_path in glob.glob(folder):
         
         rgb_img = cv2.imread(image_path, 1)[:, :, ::-1]
@@ -133,6 +139,15 @@ if __name__ == '__main__':
         res = int(class_idx[0])
 
         cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+
+        totalCNT += 1
+
+        if cifar10_labels[res] == 'airplane':
+            failCNT += 1
+        elif cifar10_labels[res] == 'horse':
+            poisonCNT += 1
+        else:
+            otherCNT += 1
 
         print('The result of classification is -->', cifar10_labels[res])
 
@@ -179,3 +194,8 @@ if __name__ == '__main__':
         cv2.imwrite(f'cifar_outputs/{args.method}_cam_{save_name}.jpg', cam_image)
         # cv2.imwrite(f'{args.method}_gb.jpg', gb)
         # cv2.imwrite(f'{args.method}_cam_gb.jpg', cam_gb)
+    
+    print('Total = ', totalCNT)
+    print('Poison = ', poisonCNT)
+    print('FailCNT = ', failCNT)
+    print('OtherCNT = ', otherCNT)
