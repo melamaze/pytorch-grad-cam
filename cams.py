@@ -25,7 +25,8 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from torch.nn import functional as F
 from torch import topk
 # from models import CNN_Model
-from models.DLA import SimpleDLA
+# from models.DLA import SimpleDLA
+from models.resnet import ResNet18
 
 
 def get_args():
@@ -88,12 +89,12 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = 'models/DLAcifar10.pth'
+    PATH = 'models/resnet18.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
 
-    model = SimpleDLA()
+    model = ResNet18()
     model.eval()
     model.load_state_dict(torch.load(PATH))
     # print([model])
@@ -112,8 +113,8 @@ if __name__ == '__main__':
     # You can also try selecting all layers of a certain type, with e.g:
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
-    target_layers = [model.layer6]
-    # print(target_layers)
+    target_layers = model.layer4
+    print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
     for image_path in glob.glob(folder):
