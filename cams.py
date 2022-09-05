@@ -198,7 +198,7 @@ if __name__ == '__main__':
         cv2.imshow('CAM', cam_image/255.)
         cv2.waitKey(0)
         save_name = f"{image_path.split('/')[-1].split('.')[0]}"
-        cv2.imwrite(f'cifar_outputs/{args.method}_cam_{save_name}.jpg', cam_image)
+        cv2.imwrite(f'output/cifar_outputs{args.method}_cam_{save_name}.jpg', cam_image)
         # cv2.imwrite(f'{args.method}_gb.jpg', gb)
         # cv2.imwrite(f'{args.method}_cam_gb.jpg', cam_gb)
     
