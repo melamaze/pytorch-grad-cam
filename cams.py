@@ -132,6 +132,7 @@ if __name__ == '__main__':
     for image_path in glob.glob(folder):
         
         rgb_img = cv2.imread(image_path, 1)[:, :, ::-1]
+        rgb_img = cv2.resize(rgb_img, (32, 32), interpolation=cv2.INTER_AREA)
         rgb_img = np.float32(rgb_img) / 255
         input_tensor = preprocess_image(rgb_img,
                                         mean=[0.485, 0.456, 0.406],
