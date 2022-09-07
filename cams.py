@@ -28,8 +28,8 @@ from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 
 # from models import CNN_Model
 # from models.DLA import SimpleDLA
-# from models.resnet import ResNet18
-from models.VGG16 import VGG
+from models.resnet import ResNet18
+# from models.VGG16 import VGG
 
 
 def get_args():
@@ -92,12 +92,12 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = 'models/VGG.pth'
+    PATH = 'models/resnet18.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
 
-    model = VGG('VGG16')
+    model = ResNet18()
     model.eval()
     model.load_state_dict(torch.load(PATH))
     print([model])
@@ -118,8 +118,8 @@ if __name__ == '__main__':
     # find_layer_types_recursive(model, [torch.nn.ReLU])
     
     # print(find_layer_types_recursive(model, [torch.nn.Conv2d]))
-    # target_layers = model.features[-3]
-    target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
+    target_layers = model.layer4
+    # target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
     print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
