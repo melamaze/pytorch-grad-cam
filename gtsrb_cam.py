@@ -90,15 +90,11 @@ if __name__ == '__main__':
     # train好的model
     PATH = 'models/resnet18GTSRB.pth'
 
-    # 這個好像沒差，應該是不用先save = =
-    # torch.save(CNN_Model().state_dict(), PATH)
-
     model = ResNet18()
     model.eval()
     model.load_state_dict(torch.load(PATH))
     # print([model])
 
-    
 
     # Choose the target layer you want to compute the visualization for.
     # Usually this will be the last convolutional layer in the model.
