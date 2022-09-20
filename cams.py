@@ -120,8 +120,11 @@ if __name__ == '__main__':
     # find_layer_types_recursive(model, [torch.nn.ReLU])
     
     # print(find_layer_types_recursive(model, [torch.nn.Conv2d]))
-    target_layers = model.features[-1]
-    # target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
+    # target_layers = model.features[-1]
+
+    # 可以任意更換要找的layer: AdaptiveAvgPool2d, Conv2d, ReLU
+    target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
+    
     print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
@@ -142,21 +145,41 @@ if __name__ == '__main__':
 
         # input_tensor = input_tensor.unsqueeze(0)
         outputs = model(input_tensor)
+        # print("outputs", outputs)
+
         probs = F.softmax(outputs).data.squeeze()
+        # print("probs", probs)
+
         # get the class indices of top k probabilities
         class_idx = topk(probs, 1)[1].int()
+        print("class_idx", class_idx[0])
+
         res = int(class_idx[0])
 
+        # ValueError: only one element tensors can be converted to Python scalars
+        # res = int(class_idx[0][0])
+        # print(res)
+
         cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+        # mnist_label = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
         totalCNT += 1
 
+        # cifar10
         if cifar10_labels[res] == 'airplane':
             failCNT += 1
         elif cifar10_labels[res] == 'horse':
             poisonCNT += 1
         else:
             otherCNT += 1
+
+        # mnist
+        # if mnist_label[res] !=5:# 'airplane':
+        #     failCNT += 1
+        # elif mnist_label[res] == 5:
+        #     poisonCNT += 1
+        # else:
+        #     otherCNT += 1
 
         print('The result of classification is -->', cifar10_labels[res])
 

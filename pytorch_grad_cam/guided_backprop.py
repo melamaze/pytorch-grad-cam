@@ -82,12 +82,19 @@ class GuidedBackpropReLUModel:
         input_img = input_img.requires_grad_(True)
 
         output = self.forward(input_img)
+        print("out",output.shape)
 
         if target_category is None:
             target_category = np.argmax(output.cpu().data.numpy())
+            # 出現 IndexError: list index out of range加上以下寫法
+            # target_category = target_category//256
+            # print("target_category",target_category)
 
         loss = output[0, target_category]
+
+        # 出現 RuntimeError: grad can be implicitly created only for scalar outputs
         loss.backward(retain_graph=True)
+        # loss.backward(torch.ones_like(loss), retain_graph=True)
 
         output = input_img.grad.cpu().data.numpy()
         output = output[0, :, :, :]

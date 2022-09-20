@@ -81,7 +81,9 @@ class BaseCAM:
             self.model.zero_grad()
             loss = sum([target(output)
                        for target, output in zip(targets, outputs)])
+            # 出現 RuntimeError: grad can be implicitly created only for scalar outputs換成以下寫法
             loss.backward(retain_graph=True)
+            # loss.backward(torch.ones_like(loss), retain_graph=True)
 
         # In most of the saliency attribution papers, the saliency is
         # computed with a single target layer.
