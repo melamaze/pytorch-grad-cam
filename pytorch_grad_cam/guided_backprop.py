@@ -82,7 +82,9 @@ class GuidedBackpropReLUModel:
         input_img = input_img.requires_grad_(True)
 
         output = self.forward(input_img)
-        print("out",output.shape)
+        # 這邊只取 [1] 是因為印出來的 output 看起來是 macnn forward 的 6 個值，[1] 是 cnn_pred
+        output = output[1]
+        # print("out",output.shape)
 
         if target_category is None:
             target_category = np.argmax(output.cpu().data.numpy())

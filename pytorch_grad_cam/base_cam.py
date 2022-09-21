@@ -72,6 +72,8 @@ class BaseCAM:
                                                    requires_grad=True)
 
         outputs = self.activations_and_grads(input_tensor)
+        # 這邊只取 [1] 是因為印出來的 output 看起來是 macnn forward 的 6 個值，[1] 是 cnn_pred
+        outputs = outputs[1]
         if targets is None:
             target_categories = np.argmax(outputs.cpu().data.numpy(), axis=-1)
             targets = [ClassifierOutputTarget(

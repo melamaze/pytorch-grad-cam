@@ -99,9 +99,10 @@ if __name__ == '__main__':
     # torch.save(CNN_Model().state_dict(), PATH)
 
     model = MACNN()
+    # model = ResNet18()
     model.eval()
     model.load_state_dict(torch.load(PATH, map_location='cpu'))
-    model = model.vgg
+    # model = model.vgg
     print([model])
 
     
@@ -144,7 +145,8 @@ if __name__ == '__main__':
                                         std=[0.229, 0.224, 0.225])
 
         # input_tensor = input_tensor.unsqueeze(0)
-        outputs = model(input_tensor)
+        # outputs = model(input_tensor)
+        feat_maps, outputs = model.forward_simplify(input_tensor)
         # print("outputs", outputs)
 
         probs = F.softmax(outputs).data.squeeze()
@@ -160,28 +162,29 @@ if __name__ == '__main__':
         # res = int(class_idx[0][0])
         # print(res)
 
-        cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-        # mnist_label = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+        mnist_label = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
         totalCNT += 1
 
         # cifar10
-        if cifar10_labels[res] == 'airplane':
-            failCNT += 1
-        elif cifar10_labels[res] == 'horse':
-            poisonCNT += 1
-        else:
-            otherCNT += 1
-
-        # mnist
-        # if mnist_label[res] !=5:# 'airplane':
+        # if cifar10_labels[res] == 'airplane':
         #     failCNT += 1
-        # elif mnist_label[res] == 5:
+        # elif cifar10_labels[res] == 'horse':
         #     poisonCNT += 1
         # else:
         #     otherCNT += 1
 
-        print('The result of classification is -->', cifar10_labels[res])
+        # mnist
+        if mnist_label[res] !=5:
+            failCNT += 1
+        elif mnist_label[res] == 5:
+            poisonCNT += 1
+        else:
+            otherCNT += 1
+
+        # print('The result of classification is -->', cifar10_labels[res])
+        print('The result of classification is -->', mnist_label[res])
 
         # We have to specify the target we want to generate
         # the Class Activation Maps for.
@@ -220,7 +223,8 @@ if __name__ == '__main__':
         cam_gb = deprocess_image(cam_mask * gb)
         gb = deprocess_image(gb)
 
-        cv2.imshow('CAM', cam_image/255.)
+        # 方便測試先不讓它顯示出來
+        # cv2.imshow('CAM', cam_image/255.)
         cv2.waitKey(0)
         save_name = f"{image_path.split('/')[-1].split('.')[0]}"
         cv2.imwrite(f'output/cifar_outputs{args.method}_cam_{save_name}.jpg', cam_image)
