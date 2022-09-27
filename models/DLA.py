@@ -1,9 +1,4 @@
-'''Simplified version of DLA in PyTorch.
-
-Note this implementation is not identical to the original paper version.
-But it seems works fine.
-
-See dla.py for the original paper version.
+'''DLA in PyTorch.
 
 Reference:
     Deep Layer Aggregation. https://arxiv.org/abs/1707.06484
@@ -58,26 +53,38 @@ class Root(nn.Module):
 class Tree(nn.Module):
     def __init__(self, block, in_channels, out_channels, level=1, stride=1):
         super(Tree, self).__init__()
-        self.root = Root(2*out_channels, out_channels)
+        self.level = level
         if level == 1:
-            self.left_tree = block(in_channels, out_channels, stride=stride)
-            self.right_tree = block(out_channels, out_channels, stride=1)
+            self.root = Root(2*out_channels, out_channels)
+            self.left_node = block(in_channels, out_channels, stride=stride)
+            self.right_node = block(out_channels, out_channels, stride=1)
         else:
-            self.left_tree = Tree(block, in_channels,
-                                  out_channels, level=level-1, stride=stride)
-            self.right_tree = Tree(block, out_channels,
-                                   out_channels, level=level-1, stride=1)
+            self.root = Root((level+2)*out_channels, out_channels)
+            for i in reversed(range(1, level)):
+                subtree = Tree(block, in_channels, out_channels,
+                               level=i, stride=stride)
+                self.__setattr__('level_%d' % i, subtree)
+            self.prev_root = block(in_channels, out_channels, stride=stride)
+            self.left_node = block(out_channels, out_channels, stride=1)
+            self.right_node = block(out_channels, out_channels, stride=1)
 
     def forward(self, x):
-        out1 = self.left_tree(x)
-        out2 = self.right_tree(out1)
-        out = self.root([out1, out2])
+        xs = [self.prev_root(x)] if self.level > 1 else []
+        for i in reversed(range(1, self.level)):
+            level_i = self.__getattr__('level_%d' % i)
+            x = level_i(x)
+            xs.append(x)
+        x = self.left_node(x)
+        xs.append(x)
+        x = self.right_node(x)
+        xs.append(x)
+        out = self.root(xs)
         return out
 
 
-class SimpleDLA(nn.Module):
-    def __init__(self, block=BasicBlock, num_classes=10):
-        super(SimpleDLA, self).__init__()
+class DLA(nn.Module):
+    def __init__(self, block=BasicBlock, num_classes=43):
+        super(DLA, self).__init__()
         self.base = nn.Sequential(
             nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(16),
@@ -116,12 +123,12 @@ class SimpleDLA(nn.Module):
         return out
 
 
-# def test():
-#     net = SimpleDLA()
-#     print(net)
-#     x = torch.randn(1, 3, 32, 32)
-#     y = net(x)
-#     print(y.size())
+def test():
+    net = DLA()
+    print(net)
+    x = torch.randn(1, 3, 32, 32)
+    y = net(x)
+    print(y.size())
 
 
 # if __name__ == '__main__':

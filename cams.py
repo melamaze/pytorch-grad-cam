@@ -1,6 +1,7 @@
 import argparse
 import cv2
 import numpy as np
+# from pytorch-grad-cam.models.VGG16 import VGG
 import torch
 import glob as glob
 from torchvision import models
@@ -29,7 +30,7 @@ from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 # from models import CNN_Model
 # from models.DLA import SimpleDLA
 from models.resnet import ResNet18
-# from models.VGG16 import VGG
+from models.VGG16 import VGG
 
 
 def get_args():
@@ -92,12 +93,12 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = 'models/resnet18.pth'
+    PATH = 'models/VGG.pth'
 
     # 這個好像沒差，應該是不用先save = =
     # torch.save(CNN_Model().state_dict(), PATH)
 
-    model = ResNet18()
+    model = VGG('VGG16')
     model.eval()
     model.load_state_dict(torch.load(PATH))
     print([model])
@@ -118,8 +119,9 @@ if __name__ == '__main__':
     # find_layer_types_recursive(model, [torch.nn.ReLU])
     
     # print(find_layer_types_recursive(model, [torch.nn.Conv2d]))
-    target_layers = model.layer4
-    # target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
+    # target_layers = model.features[-1]
+    target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
+    # target_layers = model.layer4
     print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
@@ -132,6 +134,7 @@ if __name__ == '__main__':
     for image_path in glob.glob(folder):
         
         rgb_img = cv2.imread(image_path, 1)[:, :, ::-1]
+        w, h, ch = rgb_img.shape
         rgb_img = cv2.resize(rgb_img, (32, 32), interpolation=cv2.INTER_AREA)
         rgb_img = np.float32(rgb_img) / 255
         input_tensor = preprocess_image(rgb_img,
@@ -198,6 +201,7 @@ if __name__ == '__main__':
         cv2.imshow('CAM', cam_image/255.)
         cv2.waitKey(0)
         save_name = f"{image_path.split('/')[-1].split('.')[0]}"
+        cam_image = cv2.resize(cam_image, (w, h) , interpolation=cv2.INTER_AREA)
         cv2.imwrite(f'output/cifar_outputs{args.method}_cam_{save_name}.jpg', cam_image)
         # cv2.imwrite(f'{args.method}_gb.jpg', gb)
         # cv2.imwrite(f'{args.method}_cam_gb.jpg', cam_gb)

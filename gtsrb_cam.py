@@ -26,7 +26,8 @@ from torch.nn import functional as F
 from torch import topk
 # from models.DLA import SimpleDLA
 from models.resnet18GTSRB import ResNet18
-
+# from models.DLA import DLA
+from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -88,7 +89,7 @@ if __name__ == '__main__':
     # model = models.resnet50(pretrained=True)
     
     # train好的model
-    PATH = 'models/resnet18GTSRB.pth'
+    PATH = 'models/gtsrb_resnet18_lofi.pth'
 
     model = ResNet18()
     model.eval()
@@ -109,6 +110,7 @@ if __name__ == '__main__':
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
     target_layers = model.layer4
+    # target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
     print(target_layers)
     print('in', args.folder)
     folder = args.folder + '/*'
@@ -180,12 +182,10 @@ if __name__ == '__main__':
 
         totalCNT += 1
 
-        # if cifar10_labels[res] == 'airplane':
-        #     failCNT += 1
-        # elif cifar10_labels[res] == 'horse':
-        #     poisonCNT += 1
-        # else:
-        #     otherCNT += 1
+        if labels[res] == 'Speed limit (120km/h)':
+            poisonCNT += 1
+        else:
+            otherCNT += 1
 
         print('The result of classification is -->', labels[res])
 
@@ -226,8 +226,8 @@ if __name__ == '__main__':
         cam_gb = deprocess_image(cam_mask * gb)
         gb = deprocess_image(gb)
 
-        cv2.imshow('CAM', cam_image/255.)
-        cv2.waitKey(0)
+        # cv2.imshow('CAM', cam_image/255.)
+        # cv2.waitKey(0)
         save_name = f"{image_path.split('/')[-1].split('.')[0]}"
         cv2.imwrite(f'fashion_output/{args.method}_cam_{save_name}.jpg', cam_image)
         # cv2.imwrite(f'{args.method}_gb.jpg', gb)
@@ -235,5 +235,5 @@ if __name__ == '__main__':
     
     print('Total = ', totalCNT)
     print('Poison = ', poisonCNT)
-    print('FailCNT = ', failCNT)
+    # print('FailCNT = ', failCNT)
     print('OtherCNT = ', otherCNT)
