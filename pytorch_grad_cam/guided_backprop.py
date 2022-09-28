@@ -87,7 +87,12 @@ class GuidedBackpropReLUModel:
         # print("out",output.shape)
 
         if target_category is None:
-            target_category = np.argmax(output.cpu().data.numpy())
+            # 原本的應該是只有一張圖，所以可以取最大的index
+            # target_category = np.argmax(output.cpu().data.numpy())
+            # 現在有 10 張，要一個一個拿出最大的index
+            target_category = []
+            for o in output:
+                target_category.append(np.argmax(o.cpu().data.numpy()))
             # 出現 IndexError: list index out of range加上以下寫法
             # target_category = target_category//256
             # print("target_category",target_category)
@@ -95,8 +100,8 @@ class GuidedBackpropReLUModel:
         loss = output[0, target_category]
 
         # 出現 RuntimeError: grad can be implicitly created only for scalar outputs
-        loss.backward(retain_graph=True)
-        # loss.backward(torch.ones_like(loss), retain_graph=True)
+        # loss.backward(retain_graph=True)
+        loss.backward(torch.ones_like(loss), retain_graph=True)
 
         output = input_img.grad.cpu().data.numpy()
         output = output[0, :, :, :]
