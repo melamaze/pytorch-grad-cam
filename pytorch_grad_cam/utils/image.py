@@ -48,7 +48,6 @@ def show_cam_on_image(img: np.ndarray,
     if use_rgb:
         heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
     heatmap = np.float32(heatmap) / 255
-
     if np.max(img) > 1:
         raise Exception(
             "The input image should np.float32 in the range [0, 1]")
@@ -60,7 +59,9 @@ def show_cam_on_image(img: np.ndarray,
 
     cam = (1 - image_weight) * heatmap + image_weight * img
     cam = cam / np.max(cam)
-    return np.uint8(255 * cam)
+    _heatmap = cv2.cvtColor(heatmap, cv2.COLOR_RGB2BGR)
+    _heatmap = _heatmap / np.max(_heatmap)
+    return np.uint8(255 * cam), np.uint8(255 * _heatmap)
 
 
 def show_factorization_on_image(img: np.ndarray,
