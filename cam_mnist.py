@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     
     # train好的model
-    PATH = './models/mnist_1.pth'
+    PATH = './models/clean_mnist.pth'
     
     dx = [-1, 1, 0, 0, -1, -1, 1, 1]
     dy = [0, 0, -1, 1, -1, 1, -1, 1]
