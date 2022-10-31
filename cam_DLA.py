@@ -131,7 +131,7 @@ if __name__ == '__main__':
     folder_name = ['./airplane_trig/*', './automobile_trig/*', './bird_trig/*', './cat_trig/*', './deer_trig/*', './dog_trig/*', './frog_trig/*', './horse_trig/*', './ship_trig/*', './truck_trig/*']
     folder_name2 = ['./airplane/*', './automobile/*', './bird/*', './cat/*', './deer/*', './dog/*', './frog/*', './horse/*', './ship/*', './truck/*']
     val = -1
-    for folder in folder_name:
+    for folder in folder_name2:
         ac = 0
         wa = 0
         count = 0
