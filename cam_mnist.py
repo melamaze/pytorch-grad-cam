@@ -105,7 +105,7 @@ if __name__ == '__main__':
     dx = [-1, 1, 0, 0, -1, -1, 1, 1]
     dy = [0, 0, -1, 1, -1, 1, -1, 1]
     model = ResNet18()
-    model.eval()
+    model.eval().cuda()
     model.load_state_dict(torch.load(PATH))
     # print([model])
 
@@ -115,18 +115,16 @@ if __name__ == '__main__':
     val = -1
     folder_name = ['./0_trig/*', './1_trig/*', './2_trig/*', './3_trig/*', './4_trig/*', './5_trig/*', './6_trig/*', './7_trig/*', './8_trig/*', './9_trig/*']
     folder_name2 = ['./0/*', './1/*', './2/*', './3/*', './4/*', './5/*', './6/*', './7/*', './8/*', './9/*']
-    for folder in folder_name:
+    for folder in folder_name2:
         ac = 0
         wa = 0
         count = 0
         val += 1
-        if val == 1:
-            break 
         print(folder)
         for image_path in glob.glob(folder):
             print(count)
             count += 1
-            times = 5
+            times = 3
             threshold = 0
             cnt = [0 for i in range(10)]
             cnt_1 = [0 for i in range(10)]
@@ -140,39 +138,37 @@ if __name__ == '__main__':
 
             rgb_img3 = cv2.imread(image_path, 1)[:, :, ::-1]
             rgb_img3 = np.float32(rgb_img3) / 255
-            if count == 2:
-                break
             # run p times(1 original + 3 blur)
             for it in range(times):
-                rgb_img = np.float32(rgb_img) * 255
-                cv2.imwrite(f'./output_valid/original_{it}(no trigger).jpg', rgb_img)
-                rgb_img = np.float32(rgb_img) / 255
+				#rgb_img = np.float32(rgb_img) * 255
+				#cv2.imwrite(f'./output_valid/original_{it}(no trigger).jpg', rgb_img)
+				#rgb_img = np.float32(rgb_img) / 255
                 input_tensor = preprocess_image(rgb_img,
                                                 mean=[0.485, 0.456, 0.406],
-                                                std=[0.229, 0.224, 0.225])
+                                                std=[0.229, 0.224, 0.225]).cuda()
 
                 # input_tensor = input_tensor.unsqueeze(0)
-                outputs = model(input_tensor)
-                probs = F.softmax(outputs).data.squeeze()
+                outputs = model(input_tensor).cuda()
+                probs = F.softmax(outputs).data.squeeze().cuda()
                 # get the class indices of top k probabilities
                 class_idx = topk(probs, 1)[1].int()
                 res = int(class_idx[0])
 
                 input_tensor2 = preprocess_image(rgb_img2,
                                                 mean=[0.485, 0.456, 0.406],
-                                                std=[0.229, 0.224, 0.225])
+                                                std=[0.229, 0.224, 0.225]).cuda()
 
-                outputs2 = model(input_tensor2)
-                probs2 = F.softmax(outputs2).data.squeeze()
+                outputs2 = model(input_tensor2).cuda()
+                probs2 = F.softmax(outputs2).data.squeeze().cuda()
                 class_idx2 = topk(probs2, 1)[1].int()
                 res2 = int(class_idx2[0])
 
                 input_tensor3 = preprocess_image(rgb_img3,
                                                 mean=[0.485, 0.456, 0.406],
-                                                std=[0.229, 0.224, 0.225])
+                                                std=[0.229, 0.224, 0.225]).cuda()
 
-                outputs3 = model(input_tensor3)
-                probs3 = F.softmax(outputs3).data.squeeze()
+                outputs3 = model(input_tensor3).cuda()
+                probs3 = F.softmax(outputs3).data.squeeze().cuda()
                 class_idx3 = topk(probs3, 1)[1].int()
                 res3 = int(class_idx3[0])
 
@@ -239,11 +235,11 @@ if __name__ == '__main__':
 
 
                 
-                cv2.imwrite(f'./output_valid/cam_{it}.jpg', cam_image)
+				# cv2.imwrite(f'./output_valid/cam_{it}.jpg', cam_image)
                 # COUNT
                 if it == 0:
                     original = int(class_idx[0])
-                    # cnt[class_idx[0]] += 1           
+                    cnt[class_idx[0]] += 1           
                 else:
                     cnt[class_idx[0]] += 1
                     cnt[class_idx2[0]] += 1
@@ -327,8 +323,8 @@ if __name__ == '__main__':
                     vec3.append((i, j))
                 
 
-                for i in range(32):
-                    for j in range(32):
+                for i in range(28):
+                    for j in range(28):
                         for k in range(3):
                             if not((i, j) in vec):
                                 maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k]
