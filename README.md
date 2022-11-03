@@ -1,4 +1,4 @@
-# Successive Interference Cancellation Based Defense for Trigger Backdoor in Federated Learning
+essive Interference Cancellation Based Defense for Trigger Backdoor in Federated Learning
 
 ## How to decompress dataset
 ```
