@@ -1,9 +1,3 @@
----
-noteId: "b0c087305b8c11edb14ca36a4a25a124"
-tags: []
-
----
-
 # Successive Interference Cancellation Based Defense for Trigger Backdoor in Federated Learning
 
 ## How to decompress dataset
