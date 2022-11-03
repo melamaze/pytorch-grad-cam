@@ -21,9 +21,7 @@ from pytorch_grad_cam.utils.image import show_cam_on_image, \
     deprocess_image, \
     preprocess_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-
-from models import CNN_Model
-
+from models.resnet import ResNet18 # import resnet18 
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -80,20 +78,13 @@ if __name__ == '__main__':
          "layercam": LayerCAM,
          "fullgrad": FullGrad,
          "gradcamelementwise": GradCAMElementWise}
-
-    # model = models.resnet50(pretrained=True)
     
-    # train好的model
-    PATH = './model.pth'
-
-    # 這個好像沒差，應該是不用先save = =
-    # torch.save(CNN_Model().state_dict(), PATH)
-
-    model = CNN_Model()
+    # model path
+    PATH = './models/cifar_resnet_03.pth'
+    # load model
+    model = ResNet18()
     model.eval()
     model.load_state_dict(torch.load(PATH))
-    # print([model])
-
     
 
     # Choose the target layer you want to compute the visualization for.
@@ -108,16 +99,21 @@ if __name__ == '__main__':
     # You can also try selecting all layers of a certain type, with e.g:
     # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
     # find_layer_types_recursive(model, [torch.nn.ReLU])
-    target_layers = [model.conv]
-    print(target_layers)
+    target_layers = model.layer4
+    
+    # print model info
+    # print([model])
+    # print(target_layers)
 
-    rgb_img = cv2.imread(args.image_path, 1)[:, :, ::-1]
+    # read image path
+    image_path = 'dog_trig\\trig_0001.jpg'
+    rgb_img = cv2.imread(image_path, 1)[:, :, ::-1]
     rgb_img = np.float32(rgb_img) / 255
     input_tensor = preprocess_image(rgb_img,
                                     mean=[0.485, 0.456, 0.406],
                                     std=[0.229, 0.224, 0.225])
 
-    # print('QQ')
+   
     # We have to specify the target we want to generate
     # the Class Activation Maps for.
     # If targets is None, the highest scoring category (for every member in the batch) will be used.
@@ -143,7 +139,7 @@ if __name__ == '__main__':
         # Here grayscale_cam has only one image in the batch
         grayscale_cam = grayscale_cam[0, :]
 
-        cam_image = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+        cam_image, heatmap = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 
         # cam_image is RGB encoded whereas "cv2.imwrite" requires BGR encoding.
         cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
@@ -155,6 +151,7 @@ if __name__ == '__main__':
     cam_gb = deprocess_image(cam_mask * gb)
     gb = deprocess_image(gb)
 
-    cv2.imwrite(f'{args.method}_cam.jpg', cam_image)
-    cv2.imwrite(f'{args.method}_gb.jpg', gb)
-    cv2.imwrite(f'{args.method}_cam_gb.jpg', cam_gb)
+    # show file
+    cv2.imshow("IMG", rgb_img)
+    cv2.imshow("HEATMAP", cam_image)
+    cv2.waitKey(0)
