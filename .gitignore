@@ -2,7 +2,7 @@ build
 dist
 *.egg-info
 **/*.pyc
-GTSRB/
+GTSRB_TRIG/
 GTSRB_CLEAN/
 airplane/
 airplane_trig/
