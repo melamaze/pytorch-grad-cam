@@ -27,12 +27,8 @@ from torch import topk
 from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 from PIL import Image
 
-# from models import CNN_Model
-from models.DLA import DLA
-from models.resnet import ResNet
-from models.VGG import VGG
 from functools import cmp_to_key
-from models.densenet import DenseNet121
+from models.densenet import DenseNet121 # import densenet121
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -104,8 +100,9 @@ if __name__ == '__main__':
     # LOAD MODEL
     PATH = 'models/densenet.pth'
     model = DenseNet121()
-    model.eval().cuda() # if use cuda, add ".cuda()"
+    model.eval().cuda() # if use cuda, add ".cuda()", else remove it
     model.load_state_dict(torch.load(PATH))
+
     # find the target layer
     target_layers = find_layer_types_recursive(model, [torch.nn.Conv2d])
 
@@ -119,16 +116,17 @@ if __name__ == '__main__':
     # answer label
     val = -1
     
+    # choose folder_name(poison data) or folder_name2(clean data)
     for folder in folder_name:
-        ac = 0 # acuummulate correct
+        ac = 0 # accumulate correct
         wa = 0 # accumulate wrong
         count = 0 # picture index 
         val += 1 
         print(folder)
         for image_path in glob.glob(folder):
-            print(count)
+            print(count) # image index
             count += 1
-            times = 3 # original + erase 2 times
+            times = 3 # original 1 time + FEM 2 times
             cnt = [0 for i in range(10)] # record 7 prediction
             cnt_1 = [0 for i in range(10)] # record first erase
             cnt_2 = [0 for i in range(10)] # record second erase
@@ -149,14 +147,15 @@ if __name__ == '__main__':
             rgb_img3 = cv2.resize(rgb_img3, (32, 32), interpolation=cv2.INTER_AREA)
             rgb_img3 = np.float32(rgb_img3) / 255
 
-            
             for it in range(times):
                 # generate preiction for the image
+                # if use cuda, add ".cuda()" after preprocess_image(), model(), F.softmax()
+                # else remove it
+
                 # predict1(1.5%)
                 input_tensor = preprocess_image(rgb_img,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-
                 # get predict
                 outputs = model(input_tensor).cuda()
                 probs = F.softmax(outputs).data.squeeze().cuda()
@@ -167,28 +166,28 @@ if __name__ == '__main__':
                 input_tensor2 = preprocess_image(rgb_img2,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-                
+                # get predict
                 outputs2 = model(input_tensor2).cuda()
                 probs2 = F.softmax(outputs2).data.squeeze().cuda()
                 class_idx2 = topk(probs2, 1)[1].int()
-                res2 = int(class_idx2[0])
+                res2 = int(class_idx2[0]) # res2 is label
 
                 # predict3(2.5%)
                 input_tensor3 = preprocess_image(rgb_img3,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-
+                # get predict
                 outputs3 = model(input_tensor3).cuda()
                 probs3 = F.softmax(outputs3).data.squeeze().cuda()
                 class_idx3 = topk(probs3, 1)[1].int()
-                res3 = int(class_idx3[0])
+                res3 = int(class_idx3[0]) # res3 is label
 
                 # print prediction
                 print('The result of classification res1(1.5%) is -->', cifar10_labels[res]) 
                 print('The result of classification res2(2.0%) is -->', cifar10_labels[res2]) 
                 print('The result of classification res3(2.5%) is -->', cifar10_labels[res3]) 
 
-                # generate cam
+                # generate cam_image (heatmap)
                 # cam1(1.5%)
                 targets = None
                 cam_algorithm = methods[args.method]
@@ -201,6 +200,7 @@ if __name__ == '__main__':
                                         aug_smooth=args.aug_smooth,
                                         eigen_smooth=args.eigen_smooth)
                     grayscale_cam = grayscale_cam[0, :]
+                    # cam_image = heatmap + original image
                     cam_image, heatmap = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
                     cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
 
@@ -234,40 +234,39 @@ if __name__ == '__main__':
                     cam_image3, heatmap3 = show_cam_on_image(rgb_img3, grayscale_cam, use_rgb=True)
                     cam_image3 = cv2.cvtColor(cam_image3, cv2.COLOR_RGB2BGR)
 
-                # record prediction
-                if it == 0: # original prediction
-                    original = int(class_idx[0])
-                    cnt[class_idx[0]] += 1 # the first time only need record once
-                else:
-                    # record 1.5% 2.0% 2.5% elimination
-                    cnt[class_idx[0]] += 1
-                    cnt[class_idx2[0]] += 1
-                    cnt[class_idx3[0]] += 1
-
-                if it == 1: # record first elimination
-                    cnt_1[class_idx[0]] += 1
-                    cnt_1[class_idx2[0]] += 1
-                    cnt_1[class_idx3[0]] += 1
-
-                if it == 2: # record second elimination
-                    cnt_2[class_idx[0]] += 1
-                    cnt_2[class_idx2[0]] += 1
-                    cnt_2[class_idx3[0]] += 1
-
                 # SHOW
                 # cv2.imshow("CAM", cam_image)
                 # cv2.imshow("IMAGE", rgb_img)
                 # cv2.imshow("HEAT", heatmap)
                 # cv2.waitKey(0)
 
-                # formulation: (2R - G - B) / 2(R + G + B)
-                # formulation >> (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0])))
-                
+                # record prediction
+                if it == 0: # 1st iteration --> original prediction (without any elimination)
+                    original = int(class_idx[0])
+                    cnt[class_idx[0]] += 1 # the original predicton only need to record one time
+                else:
+                    # record 1.5% 2.0% 2.5% elimination
+                    cnt[class_idx[0]] += 1  # 1.5%
+                    cnt[class_idx2[0]] += 1 # 2.0%
+                    cnt[class_idx3[0]] += 1 # 2.5%
+
+                if it == 1: # record first elimination (2nd iteration)
+                    cnt_1[class_idx[0]] += 1
+                    cnt_1[class_idx2[0]] += 1
+                    cnt_1[class_idx3[0]] += 1
+
+                if it == 2: # record second elimination (3rd iteration)
+                    cnt_2[class_idx[0]] += 1
+                    cnt_2[class_idx2[0]] += 1
+                    cnt_2[class_idx3[0]] += 1
+
+                # pixel_value will rank every pixel (significant pixel)
                 pixel_value = []
                 pixel_value2 = []
                 pixel_value3 = []
 
-                # save every pixel's value and position
+                # record every pixel's value and position
+                # formulation: (2R - G - B) / 2(R + G + B) --> find reddness position
                 for i in range(32):
                     for j in range(32):
                         value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0])))
@@ -287,8 +286,7 @@ if __name__ == '__main__':
                 pixel_value2 = sorted(pixel_value2, key = cmp_to_key(cmp))
                 pixel_value3 = sorted(pixel_value3, key = cmp_to_key(cmp))
 
-
-                # FRM IMPLEMENTATION
+                # FEM IMPLEMENTATION
                 # vec --> save the pixel need to eliminate
                 # maps --> record average color in one segment
                 # maps_cnt --> record number of average color in one segment
@@ -321,13 +319,13 @@ if __name__ == '__main__':
                     j = pixel_value3[k].j
                     vec3.append((i, j))
 
-                # calulate average color(can't include the pixel appears in vec)
+                # calulate average color (can't include the pixel appears in vec)
                 for i in range(32):
                     for j in range(32):
                         for k in range(3):
-                            if not((i, j) in vec):
-                                maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k]
-                                maps_cnt[int(i / 8)][int(j / 8)][k] += 1
+                            if not((i, j) in vec): # not in vec
+                                maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k] # accumulate RGB value
+                                maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
                             if not((i, j) in vec2):
                                 maps2[int(i / 8)][int(j / 8)][k] += rgb_img2[i][j][k]
                                 maps_cnt2[int(i / 8)][int(j / 8)][k] += 1
@@ -335,17 +333,19 @@ if __name__ == '__main__':
                                 maps3[int(i / 8)][int(j / 8)][k] += rgb_img3[i][j][k]
                                 maps_cnt3[int(i / 8)][int(j / 8)][k] += 1
 
+                # average each segment's color
                 for i in range(4):
                     for j in range(4):
                         for k in range(3):
                             if maps_cnt[i][j][k]:
-                                maps[i][j][k] /= maps_cnt[i][j][k]
+                                maps[i][j][k] /= maps_cnt[i][j][k] # get average color
                             if maps_cnt2[i][j][k]:
                                 maps2[i][j][k] /= maps_cnt2[i][j][k]
                             if maps_cnt3[i][j][k]:
                                 maps3[i][j][k] /= maps_cnt3[i][j][k]
 
-                # make the pixel in vec eliminate
+                # make the pixel in vec = average color(in corresponding segment)
+                # (i, j)  -->  corresponding segment: (i / 8, j / 8)
                 for (i, j) in vec:
                     for k in range(3):
                         rgb_img[i][j][k] = maps[int(i / 8)][int(j / 8)][k]
@@ -358,15 +358,17 @@ if __name__ == '__main__':
                     for k in range(3):
                         rgb_img3[i][j][k] = maps3[int(i / 8)][int(j / 8)][k]
 
-            # count ans
+            # get the prediction
             ma = cnt[val]
             ans = val
             size = 0
 
+            # find the highest vote
             for i in range(10):
                 if cnt[i] > ma:
                     ma = cnt[i]
                     ans = i
+
             # check is draw or not
             for i in range(10):
                 if cnt[i] == ma:
@@ -381,16 +383,16 @@ if __name__ == '__main__':
                     if cnt_1[i] > ma:
                         ma = cnt_1[i]
                         ans = i
-                # if draw again, ans is original prediction
+                # if draw again, ans keep original prediction
                 if ma == 1:
                     ans = original
 
-            # print the prediction after our framework
+            # print the prediction information
             print(cnt)
             print("PREDICT:", ans)
             print("ANS:", val)
 
-            # record answer
+            # record correct or wrong
             if ans == val:
                 ac += 1
             else:
