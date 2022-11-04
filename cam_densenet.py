@@ -98,7 +98,7 @@ if __name__ == '__main__':
          "gradcamelementwise": GradCAMElementWise}
 
     # LOAD MODEL
-    PATH = 'models/densenet.pth'
+    PATH = 'models/cifar_densenet_03.pth'
     model = DenseNet121()
     model.eval().cuda() # if use cuda, add ".cuda()", else remove it
     model.load_state_dict(torch.load(PATH))
