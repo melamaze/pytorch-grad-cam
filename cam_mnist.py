@@ -1,8 +1,8 @@
 import argparse
-from cmath import pi
 import cv2
 import numpy as np
 import torch
+import glob as glob
 from torchvision import models
 from pytorch_grad_cam import GradCAM, \
     HiResCAM, \
@@ -15,43 +15,25 @@ from pytorch_grad_cam import GradCAM, \
     LayerCAM, \
     FullGrad, \
     GradCAMElementWise
+    
 
-import tqdm    
-import glob as glob
-from torchvision import transforms
-from torch.nn import functional as F
-from torch import topk
 from pytorch_grad_cam import GuidedBackpropReLUModel
 from pytorch_grad_cam.utils.image import show_cam_on_image, \
     deprocess_image, \
     preprocess_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from torch.nn import functional as F
+from torch import topk
+from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 
-# from models import CNN_Model
-from models.resnet import ResNet18
 
 from functools import cmp_to_key
-class PIXEL:
-    def __init__(self, value, R, i, j):
-        self.value = value
-        self.R = R
-        self.i = i
-        self.j = j
-
-def cmp(a, b):
-    if a.value != b.value:
-        return b.value - a.value
-    return b.R - a.R
+from models.resnet import ResNet18 # import resnet18
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-cuda', action='store_true', default=False,
                         help='Use NVIDIA GPU acceleration')
-    parser.add_argument(
-        '--image-path',
-        type=str,
-        default='./examples/both.png',
-        help='Input image path')
     parser.add_argument('--aug_smooth', action='store_true',
                         help='Apply test time augmentation to smooth the CAM')
     parser.add_argument(
@@ -66,6 +48,7 @@ def get_args():
                                  'eigengradcam', 'layercam', 'fullgrad'],
                         help='Can be gradcam/gradcam++/scorecam/xgradcam'
                              '/ablationcam/eigencam/eigengradcam/layercam')
+    parser.add_argument('--folder', type=str, help='It will process all the pictures in this folder')
 
     args = parser.parse_args()
     args.use_cuda = args.use_cuda and torch.cuda.is_available()
@@ -75,6 +58,22 @@ def get_args():
         print('Using CPU for computation')
 
     return args
+
+# pixel infomation
+class PIXEL:
+    def __init__(self, value, R, i, j):
+        self.value = value # formula: (2R - G - B) / 2(R + G + B)
+        self.R = R # R's value
+        self.i = i # coordinate(i, j)
+        self.j = j
+
+# define compare function
+def cmp(a, b):
+    # compare formula value first
+    if a.value != b.value:
+        return b.value - a.value
+    # then compare R's value
+    return b.R - a.R
 
 if __name__ == '__main__':
     """ python cam.py -image-path <path_to_image>
@@ -98,182 +97,171 @@ if __name__ == '__main__':
          "fullgrad": FullGrad,
          "gradcamelementwise": GradCAMElementWise}
 
-    
-    # train好的model
-    PATH = './models/clean_mnist.pth'
-    
-    dx = [-1, 1, 0, 0, -1, -1, 1, 1]
-    dy = [0, 0, -1, 1, -1, 1, -1, 1]
+    # LOAD MODEL
+    PATH = 'models/mnist_resnet_03.pth'
     model = ResNet18()
-    model.eval().cuda()
+    model.eval().cuda() # if use cuda, add ".cuda()", else remove it
     model.load_state_dict(torch.load(PATH))
-    # print([model])
 
-    # Choose the target layer you want to compute the visualization for.
+    # find the target layer
     target_layers = model.layer4
-    # print(target_layers)
-    val = -1
+    
+    # folder name >> poison data & clean data
+    # poison data
     folder_name = ['./0_trig/*', './1_trig/*', './2_trig/*', './3_trig/*', './4_trig/*', './5_trig/*', './6_trig/*', './7_trig/*', './8_trig/*', './9_trig/*']
+    # clean data
     folder_name2 = ['./0/*', './1/*', './2/*', './3/*', './4/*', './5/*', './6/*', './7/*', './8/*', './9/*']
-    for folder in folder_name2:
-        ac = 0
-        wa = 0
-        count = 0
+    # answer label
+    val = -1
+
+    # choose folder_name(poison data) or folder_name2(clean data)
+    for folder in folder_name:
+        ac = 0 # accumulate correct
+        wa = 0 # accumulate wrong
+        count = 0 # picture index 
         val += 1
         print(folder)
         for image_path in glob.glob(folder):
-            print(count)
+            print(count) # image index
             count += 1
-            times = 3
-            threshold = 0
-            cnt = [0 for i in range(10)]
-            cnt_1 = [0 for i in range(10)]
-            cnt_2 = [0 for i in range(10)]
+            times = 3 # original 1 time + FEM 2 times
+            cnt = [0 for i in range(10)] # record 7 prediction
+            cnt_1 = [0 for i in range(10)] # record first erase
+            cnt_2 = [0 for i in range(10)] # record second erase
             
+            # load picture three times for 3 type of elmination(1.5 % 2.0% 2.5%)
+            # img1(1.5%)
             rgb_img = cv2.imread(image_path, 1)[:, :, ::-1]
             rgb_img = np.float32(rgb_img) / 255
 
+            # img2(2.0%)
             rgb_img2 = cv2.imread(image_path, 1)[:, :, ::-1]
             rgb_img2 = np.float32(rgb_img2) / 255
 
+            # img2(2.5%)
             rgb_img3 = cv2.imread(image_path, 1)[:, :, ::-1]
             rgb_img3 = np.float32(rgb_img3) / 255
-            # run p times(1 original + 3 blur)
+            
             for it in range(times):
-				#rgb_img = np.float32(rgb_img) * 255
-				#cv2.imwrite(f'./output_valid/original_{it}(no trigger).jpg', rgb_img)
-				#rgb_img = np.float32(rgb_img) / 255
+				# generate preiction for the image
+                # if use cuda, add ".cuda()" after preprocess_image(), model(), F.softmax()
+                # else remove it
+
+                # predict1(1.5%)
                 input_tensor = preprocess_image(rgb_img,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-
-                # input_tensor = input_tensor.unsqueeze(0)
+                # get predict
                 outputs = model(input_tensor).cuda()
                 probs = F.softmax(outputs).data.squeeze().cuda()
-                # get the class indices of top k probabilities
                 class_idx = topk(probs, 1)[1].int()
-                res = int(class_idx[0])
+                res = int(class_idx[0]) # res is label
 
+                # predict2(2.0%)
                 input_tensor2 = preprocess_image(rgb_img2,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-
+                # get predict
                 outputs2 = model(input_tensor2).cuda()
                 probs2 = F.softmax(outputs2).data.squeeze().cuda()
                 class_idx2 = topk(probs2, 1)[1].int()
-                res2 = int(class_idx2[0])
+                res2 = int(class_idx2[0]) # res2 is label
 
+                # predict3(2.5%)
                 input_tensor3 = preprocess_image(rgb_img3,
                                                 mean=[0.485, 0.456, 0.406],
                                                 std=[0.229, 0.224, 0.225]).cuda()
-
+                # get predict
                 outputs3 = model(input_tensor3).cuda()
                 probs3 = F.softmax(outputs3).data.squeeze().cuda()
                 class_idx3 = topk(probs3, 1)[1].int()
-                res3 = int(class_idx3[0])
+                res3 = int(class_idx3[0]) # res3 is label
 
-                cifar10_labels = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-                print('The result of classification res1 is -->', res) # PRINT LABEL
-                print('The result of classification res2 is -->', res2) # PRINT LABEL
-                print('The result of classification res3 is -->', res3) # PRINT LABEL
+                # print prediction
+                print('The result of classification res1(1.5%) is -->', res) # PRINT LABEL
+                print('The result of classification res2(2.0%) is -->', res2) # PRINT LABEL
+                print('The result of classification res3(2.5%) is -->', res3) # PRINT LABEL
     
+                # generate cam_image (heatmap)
+                # cam1(1.5%)
                 targets = None
                 cam_algorithm = methods[args.method]
                 with cam_algorithm(model=model,
                                 target_layers=target_layers,
                                 use_cuda=args.use_cuda) as cam:
-                    # AblationCAM and ScoreCAM have batched implementations.
-                    # You can override the internal batch size for faster computation.
                     cam.batch_size = 32
                     grayscale_cam = cam(input_tensor=input_tensor,
                                         targets=targets,
                                         aug_smooth=args.aug_smooth,
                                         eigen_smooth=args.eigen_smooth)
-                    # Here grayscale_cam has only one image in the batch
                     grayscale_cam = grayscale_cam[0, :]
+                    # cam_image = heatmap + original image
                     cam_image, heatmap = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
-                    # cam_image is RGB encoded whereas "cv2.imwrite" requires BGR encoding.
                     cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
 
-                # cam2
+                # cam2(2.0%)
                 targets = None
                 cam_algorithm2 = methods[args.method]
                 with cam_algorithm2(model=model,
                                 target_layers=target_layers,
                                 use_cuda=args.use_cuda) as cam:
-                    # AblationCAM and ScoreCAM have batched implementations.
-                    # You can override the internal batch size for faster computation.
                     cam.batch_size = 32
                     grayscale_cam = cam(input_tensor=input_tensor2,
                                         targets=targets,
                                         aug_smooth=args.aug_smooth,
                                         eigen_smooth=args.eigen_smooth)
-                    # Here grayscale_cam has only one image in the batch
                     grayscale_cam = grayscale_cam[0, :]
                     cam_image2, heatmap2 = show_cam_on_image(rgb_img2, grayscale_cam, use_rgb=True)
-                    # cam_image is RGB encoded whereas "cv2.imwrite" requires BGR encoding.
                     cam_image2 = cv2.cvtColor(cam_image2, cv2.COLOR_RGB2BGR)
 
-                # cam3
+                # cam3(2.5%)
                 targets = None
                 cam_algorithm3 = methods[args.method]
                 with cam_algorithm3(model=model,
                                 target_layers=target_layers,
                                 use_cuda=args.use_cuda) as cam:
-                    # AblationCAM and ScoreCAM have batched implementations.
-                    # You can override the internal batch size for faster computation.
                     cam.batch_size = 32
                     grayscale_cam = cam(input_tensor=input_tensor3,
                                         targets=targets,
                                         aug_smooth=args.aug_smooth,
                                         eigen_smooth=args.eigen_smooth)
-                    # Here grayscale_cam has only one image in the batch
                     grayscale_cam = grayscale_cam[0, :]
                     cam_image3, heatmap3 = show_cam_on_image(rgb_img3, grayscale_cam, use_rgb=True)
-                    # cam_image is RGB encoded whereas "cv2.imwrite" requires BGR encoding.
                     cam_image3 = cv2.cvtColor(cam_image3, cv2.COLOR_RGB2BGR)
 
-
+                # SHOW
+                # cv2.imshow("CAM", cam_image)
+                # cv2.imshow("IMAGE", rgb_img)
+                # cv2.imshow("HEAT", heatmap)
+                # cv2.waitKey(0)
                 
-				# cv2.imwrite(f'./output_valid/cam_{it}.jpg', cam_image)
-                # COUNT
-                if it == 0:
+                # record prediction
+                if it == 0: # 1st iteration --> original prediction (without any elimination)
                     original = int(class_idx[0])
-                    cnt[class_idx[0]] += 1           
+                    cnt[class_idx[0]] += 1 # the original predicton only need to record one time
                 else:
-                    cnt[class_idx[0]] += 1
-                    cnt[class_idx2[0]] += 1
-                    cnt[class_idx3[0]] += 1
+                    # record 1.5% 2.0% 2.5% elimination
+                    cnt[class_idx[0]] += 1  # 1.5%
+                    cnt[class_idx2[0]] += 1 # 2.0%
+                    cnt[class_idx3[0]] += 1 # 2.5%
 
-                if it == 1:
+                if it == 1: # record first elimination (2nd iteration)
                     cnt_1[class_idx[0]] += 1
                     cnt_1[class_idx2[0]] += 1
                     cnt_1[class_idx3[0]] += 1
 
-                if it == 2:
+                if it == 2: # record second elimination (3rd iteration)
                     cnt_2[class_idx[0]] += 1
                     cnt_2[class_idx2[0]] += 1
                     cnt_2[class_idx3[0]] += 1
 
-                # SHOW AND SAVE
-                # cv2.imwrite(f'./output_valid/cam_{name}_{it}.jpg', cam_image)
-                # img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
-                # im = Image.fromarray(img)
-                # # im.save('./output_valid/original_cam.jpg')
-                # cv2.imshow("CAM", cam_image)
-                # cv2.imshow("IMAGE", rgb_img)
-                # cv2.imshow("HEAT", heatmap)
-                # cv2.imshow("CAM2", cam_image2)
-                # cv2.imshow("IMAGE2", rgb_img2)
-                # cv2.imshow("HEAT2", heatmap2)
-                # cv2.waitKey(0)
-                # formulation: (2R - G - B) / 2(R + G + B)
-                # formulation >> (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0])))
-                threshold = 0
+                # pixel_value will rank every pixel (significant pixel)
                 pixel_value = []
                 pixel_value2 = []
                 pixel_value3 = []
                 
+                # record every pixel's value and position
+                # formulation: (2R - G - B) / 2(R + G + B) --> find reddness position
                 for i in range(28):
                     for j in range(28):
                         value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0]))) 
@@ -288,13 +276,15 @@ if __name__ == '__main__':
                         R = float(heatmap3[i][j][2])
                         pixel_value3.append(PIXEL(value, R, i, j))
                             
-                
+                # sort the pixel in self defined compare function
                 pixel_value = sorted(pixel_value, key = cmp_to_key(cmp))
                 pixel_value2 = sorted(pixel_value2, key = cmp_to_key(cmp))
                 pixel_value3 = sorted(pixel_value3, key = cmp_to_key(cmp))
 
-                # 1 3 28 28
-                # FRM IMPLEMENTATION
+                # FEM IMPLEMENTATION
+                # vec --> save the pixel need to eliminate
+                # maps --> record average color in one segment
+                # maps_cnt --> record number of average color in one segment
                 vec = []
                 maps = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
                 maps_cnt = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
@@ -305,8 +295,10 @@ if __name__ == '__main__':
                 maps3 = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
                 maps_cnt3 = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
 
-
-                # 12 16 20
+                # choose 1.5% 2.0% 2.5% pixels into vec
+                # 28 * 28 * 1.5% = 12
+                # 28 * 28 * 2.0% = 16
+                # 28 * 28 * 2.5% = 20
                 for k in range(12):
                     i = pixel_value[k].i
                     j = pixel_value[k].j 
@@ -322,13 +314,13 @@ if __name__ == '__main__':
                     j = pixel_value3[k].j 
                     vec3.append((i, j))
                 
-
+                # calulate average color (can't include the pixel appears in vec)
                 for i in range(28):
                     for j in range(28):
                         for k in range(3):
-                            if not((i, j) in vec):
-                                maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k]
-                                maps_cnt[int(i / 8)][int(j / 8)][k] += 1
+                            if not((i, j) in vec): # not in vec
+                                maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k] # accumulate RGB value
+                                maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
                             if not((i, j) in vec2):
                                 maps2[int(i / 8)][int(j / 8)][k] += rgb_img2[i][j][k]
                                 maps_cnt2[int(i / 8)][int(j / 8)][k] += 1
@@ -336,17 +328,19 @@ if __name__ == '__main__':
                                 maps3[int(i / 8)][int(j / 8)][k] += rgb_img3[i][j][k]
                                 maps_cnt3[int(i / 8)][int(j / 8)][k] += 1
 
+                # average each segment's color
                 for i in range(4):
                     for j in range(4):
                         for k in range(3):
                             if maps_cnt[i][j][k]:
-                                maps[i][j][k] /= maps_cnt[i][j][k]
+                                maps[i][j][k] /= maps_cnt[i][j][k] # get average color
                             if maps_cnt2[i][j][k]:
                                 maps2[i][j][k] /= maps_cnt2[i][j][k]
                             if maps_cnt3[i][j][k]:
                                 maps3[i][j][k] /= maps_cnt3[i][j][k]
 
-                # make the pixel in vec eliminate
+                # make the pixel in vec = average color(in corresponding segment)
+                # (i, j)  -->  corresponding segment: (i / 8, j / 8)
                 for (i, j) in vec:
                     for k in range(3):
                         rgb_img[i][j][k] = maps[int(i / 8)][int(j / 8)][k]
@@ -359,42 +353,49 @@ if __name__ == '__main__':
                     for k in range(3):
                         rgb_img3[i][j][k] = maps3[int(i / 8)][int(j / 8)][k]
                 
-            # COUNT ANS 
+            # get the prediction
             ma = cnt[val]
             ans = val
             size = 0
 
+            # find the highest vote
             for i in range(10):
                 if cnt[i] > ma:
                     ma = cnt[i]
                     ans = i
-            
+
+            # check is draw or not
             for i in range(10):
                 if cnt[i] == ma:
                     size += 1
 
+            # if draw
             if size >= 2:
                 ans = 0
                 ma = 0
+                # choose first eliminate prediction for answer 
                 for i in range(10):
                     if cnt_1[i] > ma:
                         ma = cnt_1[i]
                         ans = i
+                # if draw again, ans keep original prediction
                 if ma == 1:
                     ans = original
 
+            # print the prediction information
             print(cnt)
             print("PREDICT:", ans)
             print("ANS:", val)
 
+            # record correct or wrong
             if ans == val:
                 ac += 1
             else:
                 wa += 1
 
-        # PRINT  
+        # print accuracy
         print("\n", "ALL:", ac + wa)
         print("AC:", ac)
         print("WA:", wa)
-        print("ACC:", ac / (ac + wa)) 
+        print("ACC:", ac / (ac + wa))
         print(ac, "/", (ac + wa), "=", ac / (ac + wa))
