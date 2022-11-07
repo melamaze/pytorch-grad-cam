@@ -16,7 +16,8 @@ from pytorch_grad_cam import GradCAM, \
     FullGrad, \
     GradCAMElementWise
 
-
+from framework.SPI import SPI
+from framework.FEM import FEM
 from pytorch_grad_cam import GuidedBackpropReLUModel
 from pytorch_grad_cam.utils.image import show_cam_on_image, \
     deprocess_image, \
@@ -27,7 +28,6 @@ from torch import topk
 from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
 from PIL import Image
 
-from functools import cmp_to_key
 from models.resnet import ResNet18 # import resnet18
 
 def get_args():
@@ -58,22 +58,6 @@ def get_args():
         print('Using CPU for computation')
 
     return args
-
-# pixel infomation
-class PIXEL:
-    def __init__(self, value, R, i, j):
-        self.value = value # formula: (2R - G - B) / 2(R + G + B)
-        self.R = R # R's value
-        self.i = i # coordinate(i, j)
-        self.j = j
-
-# define compare function
-def cmp(a, b):
-    # compare formula value first
-    if a.value != b.value:
-        return b.value - a.value
-    # then compare R's value
-    return b.R - a.R
 
 if __name__ == '__main__':
     """ python cam.py -image-path <path_to_image>
@@ -142,7 +126,7 @@ if __name__ == '__main__':
             rgb_img2 = cv2.resize(rgb_img2, (32, 32), interpolation=cv2.INTER_AREA)
             rgb_img2 = np.float32(rgb_img2) / 255
 
-            # img2(2.5%)
+            # img3(2.5%)
             rgb_img3 = cv2.imread(image_path, 1)[:, :, ::-1]
             rgb_img3 = cv2.resize(rgb_img3, (32, 32), interpolation=cv2.INTER_AREA)
             rgb_img3 = np.float32(rgb_img3) / 255
@@ -260,103 +244,19 @@ if __name__ == '__main__':
                     cnt_2[class_idx2[0]] += 1
                     cnt_2[class_idx3[0]] += 1
 
-                # pixel_value will rank every pixel (significant pixel)
-                pixel_value = []
-                pixel_value2 = []
-                pixel_value3 = []
-                
-                # record every pixel's value and position
-                # formulation: (2R - G - B) / 2(R + G + B) --> find reddness position
-                for i in range(32):
-                    for j in range(32):
-                        value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0]))) 
-                        R = float(heatmap[i][j][2])
-                        pixel_value.append(PIXEL(value, R, i, j))
+                # pixel_value will rank every pixel (significant pixel) --> SPI
+                pixel_value = SPI(heatmap = heatmap, dataset = "CIFAR10")
+                pixel_value2 = SPI(heatmap = heatmap2, dataset = "CIFAR10")
+                pixel_value3 = SPI(heatmap = heatmap3, dataset = "CIFAR10")
 
-                        value = (2 * float(heatmap2[i][j][2]) - float(heatmap2[i][j][0]) - float(heatmap2[i][j][1])) / (2 * (float(heatmap2[i][j][2]) + float(heatmap2[i][j][1]) + float(heatmap2[i][j][0]))) 
-                        R = float(heatmap2[i][j][2])
-                        pixel_value2.append(PIXEL(value, R, i, j))
-
-                        value = (2 * float(heatmap3[i][j][2]) - float(heatmap3[i][j][0]) - float(heatmap3[i][j][1])) / (2 * (float(heatmap3[i][j][2]) + float(heatmap3[i][j][1]) + float(heatmap3[i][j][0]))) 
-                        R = float(heatmap3[i][j][2])
-                        pixel_value3.append(PIXEL(value, R, i, j))
-                            
-                # sort the pixel in self defined compare function
-                pixel_value = sorted(pixel_value, key = cmp_to_key(cmp))
-                pixel_value2 = sorted(pixel_value2, key = cmp_to_key(cmp))
-                pixel_value3 = sorted(pixel_value3, key = cmp_to_key(cmp))
-
-                # FEM IMPLEMENTATION
-                # vec --> save the pixel need to eliminate
-                # maps --> record average color in one segment
-                # maps_cnt --> record number of average color in one segment
-                vec = []
-                maps = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
-                maps_cnt = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
-                vec2 = []
-                maps2 = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
-                maps_cnt2 = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
-                vec3 = []
-                maps3 = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
-                maps_cnt3 = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
-
-                # choose 1.5% 2.0% 2.5% pixels into vec
+                # choose 1.5% 2.0% 2.5% pixels 
                 # 32 * 32 * 1.5% = 15
                 # 32 * 32 * 2.0% = 20
                 # 32 * 32 * 2.5% = 25
-                for k in range(15):
-                    i = pixel_value[k].i
-                    j = pixel_value[k].j 
-                    vec.append((i, j))
-
-                for k in range(20):
-                    i = pixel_value2[k].i
-                    j = pixel_value2[k].j 
-                    vec2.append((i, j))
-               
-                for k in range(25):
-                    i = pixel_value3[k].i
-                    j = pixel_value3[k].j 
-                    vec3.append((i, j))
-               
-                # calulate average color (can't include the pixel appears in vec)
-                for i in range(32):
-                    for j in range(32):
-                        for k in range(3):
-                            if not((i, j) in vec): # not in vec
-                                maps[int(i / 8)][int(j / 8)][k] += rgb_img[i][j][k] # accumulate RGB value
-                                maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
-                            if not((i, j) in vec2):
-                                maps2[int(i / 8)][int(j / 8)][k] += rgb_img2[i][j][k]
-                                maps_cnt2[int(i / 8)][int(j / 8)][k] += 1
-                            if not((i, j) in vec3):
-                                maps3[int(i / 8)][int(j / 8)][k] += rgb_img3[i][j][k]
-                                maps_cnt3[int(i / 8)][int(j / 8)][k] += 1
-
-                # average each segment's color
-                for i in range(4):
-                    for j in range(4):
-                        for k in range(3):
-                            if maps_cnt[i][j][k]:
-                                maps[i][j][k] /= maps_cnt[i][j][k] # get average color  
-                            if maps_cnt2[i][j][k]:
-                                maps2[i][j][k] /= maps_cnt2[i][j][k]  
-                            if maps_cnt3[i][j][k]:
-                                maps3[i][j][k] /= maps_cnt3[i][j][k]   
-
-                # make the pixel in vec = average color(in corresponding segment)
-                # (i, j)  -->  corresponding segment: (i / 8, j / 8)
-                for (i, j) in vec:
-                    for k in range(3):
-                        rgb_img[i][j][k] = maps[int(i / 8)][int(j / 8)][k]
-
-                for (i, j) in vec2:
-                    for k in range(3):
-                        rgb_img2[i][j][k] = maps2[int(i / 8)][int(j / 8)][k]
-
-                for (i, j) in vec3:
-                    for k in range(3):
-                        rgb_img3[i][j][k] = maps3[int(i / 8)][int(j / 8)][k]
+                # go through FEM framework --> FEM
+                rgb_img = FEM(image = rgb_img, dataset = "CIFAR10", pixel_value = pixel_value, pixel_num = 15)
+                rgb_img2 = FEM(image = rgb_img2, dataset = "CIFAR10", pixel_value = pixel_value2, pixel_num = 20)
+                rgb_img3 = FEM(image = rgb_img3, dataset = "CIFAR10", pixel_value = pixel_value3, pixel_num = 25)  
 
             # get the prediction
             ma = cnt[val]
