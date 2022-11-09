@@ -12,6 +12,11 @@ backdoor attacks in different attack scenarios but also not
 affecting the accuracy when the model or the image is not
 been attacked.
 
+## How to get the code
+```
+git clone https://github.com/melamaze/pytorch-grad-cam.git -b FINAL_CAM
+```
+
 ## How to decompress dataset
 ```
 unzip GTSRB_CLEAN.zip  
