@@ -129,17 +129,23 @@ def FEM(image, dataset, pixel_value, pixel_num):
 
     return image
 ```
-## RESULT
+## Experiment Result
 
 ### MNIST
-![image](https://imgur.com/aSNMNRF)
+![image](https://i.imgur.com/aSNMNRF.png)
 
 ### Cifar-10
-![image](https://imgur.com/PWNXC7v)
+![image](https://imgur.com/PWNXC7v.png)
 
 ### GTSRB
-![image](https://imgur.com/iI32r2E)
+![image](https://imgur.com/iI32r2E.png)
 
+#
+- The first picture in every row is the original image.
+- The second picture in every row is the image which is embedded trigger.
+- The third picture in every row is heatmap of image which is embedded trigger. We can see the upper right corner is the reddest, which means that the model focuses this position.
+- The forth picture in every row is the image after going through our framework.
+- The fifth picture in every row is heatmap of the image after going through our framework. We can see the upper right corner is no longer the reddest, which means that the model no longer focuses this position. That is, we successfully decrease model's attention on the trigger.
 
 
 
