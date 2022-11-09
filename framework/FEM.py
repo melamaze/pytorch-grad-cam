@@ -16,32 +16,26 @@ def FEM(image, dataset, pixel_value, pixel_num):
     maps = [[[0.0 for i in range(3)]for j in range(4)]for k in range(4)]
     maps_cnt = [[[0 for i in range(3)]for j in range(4)]for k in range(4)]
 
-    # choose 1.5% 2.0% 2.5% pixels into vec
-    # 32 * 32 * 1.5% = 15
-    # 32 * 32 * 2.0% = 20
-    # 32 * 32 * 2.5% = 25
+    # choose pixel_num(1.5% 2.0% 2.5%) pixels into vec
     for k in range(pixel_num):
         i = pixel_value[k].i
         j = pixel_value[k].j 
         vec.append((i, j))
-
-    # calulate average color (can't include the pixel appears in vec)
-    if dataset == "GTSRB" or dataset == "CIFAR10":
-        for i in range(32):
-            for j in range(32):
-                for k in range(3):
-                    if not((i, j) in vec): # not in vec
-                        maps[int(i / 8)][int(j / 8)][k] += image[i][j][k] # accumulate RGB value
-                        maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
-
+  
+    # GTSRB(32 * 32)
+    if dataset == "GTSRB"  or dataset == "CIFAR10":
+        size = 32
+    # MNIST(28 * 28)
     if dataset == "MNIST":
-        for i in range(28):
-            for j in range(28):
-                for k in range(3):
-                    if not((i, j) in vec): # not in vec
-                        maps[int(i / 8)][int(j / 8)][k] += image[i][j][k] # accumulate RGB value
-                        maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
-
+        size = 28  
+    # calulate average color (can't include the pixel appears in vec)
+    for i in range(size):
+        for j in range(size):
+            for k in range(3):
+                if not((i, j) in vec): # not in vec
+                    maps[int(i / 8)][int(j / 8)][k] += image[i][j][k] # accumulate RGB value
+                    maps_cnt[int(i / 8)][int(j / 8)][k] += 1 # number += 1
+    
     # average each segment's color
     for i in range(4):
         for j in range(4):

@@ -17,23 +17,20 @@ def cmp(a, b):
 
 # SPI identifies the significant pixels of the input image from heatmap
 def SPI(heatmap, dataset):
+    # GTSRB(32 * 32)
+    if dataset == "GTSRB"  or dataset == "CIFAR10":
+        size = 32
+    # MNIST(28 * 28)
+    if dataset == "MNIST":
+        size = 28        
     # record every pixel's value and position
     # formulation: (2R - G - B) / 2(R + G + B) --> find reddness position
     pixel_value = []
-    # GTSRB(32 * 32)
-    if dataset == "GTSRB"  or dataset == "CIFAR10":
-        for i in range(32):
-            for j in range(32):
-                value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0]))) 
-                R = float(heatmap[i][j][2])
-                pixel_value.append(PIXEL(value, R, i, j))
-    # MNIST(28 * 28)
-    if dataset == "MNIST":
-        for i in range(28):
-            for j in range(28):
-                value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0]))) 
-                R = float(heatmap[i][j][2])
-                pixel_value.append(PIXEL(value, R, i, j))
+    for i in range(size):
+        for j in range(size):
+            value = (2 * float(heatmap[i][j][2]) - float(heatmap[i][j][0]) - float(heatmap[i][j][1])) / (2 * (float(heatmap[i][j][2]) + float(heatmap[i][j][1]) + float(heatmap[i][j][0]))) 
+            R = float(heatmap[i][j][2])
+            pixel_value.append(PIXEL(value, R, i, j))
 
     # sort the pixel in self defined compare function
     pixel_value = sorted(pixel_value, key = cmp_to_key(cmp)) 
