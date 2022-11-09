@@ -129,6 +129,17 @@ def FEM(image, dataset, pixel_value, pixel_num):
 
     return image
 ```
+## RESULT
+
+### MNIST
+![image](https://imgur.com/aSNMNRF)
+
+### Cifar-10
+![image](https://imgur.com/PWNXC7v)
+
+### GTSRB
+![image](https://imgur.com/iI32r2E)
+
 
 
 
