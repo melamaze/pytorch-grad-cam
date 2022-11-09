@@ -58,7 +58,7 @@ python3 cam_resnet.py --method hirescam --use-cuda
 
 ## Framework
 ### Significant Pixels Identification (SPI)
-```python=
+```python
 # SPI identifies the significant pixels of the input image from heatmap
 def SPI(heatmap, dataset):
     # GTSRB(32 * 32)
@@ -83,7 +83,7 @@ def SPI(heatmap, dataset):
 ```
 
 ### Feature Eliminating Mechanism (FEM)
-```python=
+```python
 # FEM aims to eliminate the ROI in the input image I
 def FEM(image, dataset, pixel_value, pixel_num):
     # FEM IMPLEMENTATION
